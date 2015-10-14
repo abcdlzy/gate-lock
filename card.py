@@ -29,13 +29,13 @@ class cardober( CardObserver ):
 				self.cardservice=card
 				self.cardservice.connection = self.cardservice.createConnection()
 				self.cardservice.connection.connect()
-				
-				for i in range(0,16):
-					self.auth(i*4,"A",0)
-					for j in range(0,4):
-						print "----- block :",i*4+j
-						response,sw1,sw2=self.read(i*4+j)
-						print 'response: ', toHexString(response), ' status words: ', "%x %x" % (sw1, sw2)
+#下面的几行代码为debug用，主要用来查看整个卡的数据				
+#				for i in range(0,16):
+#					self.auth(i*4,"A",0)
+#					for j in range(0,4):
+#						print "----- block :",i*4+j
+#						response,sw1,sw2=self.read(i*4+j)
+#						print 'response: ', toHexString(response), ' status words: ', "%x %x" % (sw1, sw2)
 				if self.verifyCard():
 					self.operation()
 					self.renewBlock()
