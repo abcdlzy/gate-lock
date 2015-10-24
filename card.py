@@ -2,6 +2,8 @@
 import smartcard
 import os
 import random
+import RPi.GPIO as GPIO
+#import thread
 from time import sleep
 from smartcard.ATR import ATR
 from smartcard.CardType import ATRCardType
@@ -11,8 +13,22 @@ from smartcard.CardMonitoring import CardMonitor, CardObserver
 
 
 print "\nstarting...\n"
-print "online card reader:",smartcard.System.readers(),"\n"
 
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(37,GPIO.OUT)
+GPIO.setup(38,GPIO.OUT)
+GPIO.setup(40,GPIO.OUT)
+#GPIO.setup(15,GPIO.OUT)
+
+#reset
+GPIO.output(37,True)
+GPIO.output(38,True)
+GPIO.output(40,True)
+#GPIO.output(15,False)
+#global activeFlag
+#activeFlag=-1
+
+print "online card reader:",smartcard.System.readers(),"\n"
 
 
 class cardober( CardObserver ):
@@ -20,6 +36,18 @@ class cardober( CardObserver ):
 	def __init__( self ):
 		self.cards=[]
 		self.cardservice=[]
+#		self.GPIOStatus=[False for i in range(42)]
+
+	def changeGPIOStatus(self,num):
+		if self.GPIOStatus[num+1]:
+			self.GPIOStatus[num+1]=False
+			GPIO.output(num,False)
+		else:
+			self.GPIOStatus[num+1]=True
+			GPIO.output(num,True)
+		
+	def getGPIOStatus(self,num):
+		return self.GPIOStatus[num+1]	
 
 	def update( self, observable, (addedcards, removedcards) ):
 		for card in addedcards:
@@ -29,7 +57,7 @@ class cardober( CardObserver ):
 				self.cardservice=card
 				self.cardservice.connection = self.cardservice.createConnection()
 				self.cardservice.connection.connect()
-#下面的几行代码为debug用，主要用来查看整个卡的数据				
+#				activeFlag=1				
 #				for i in range(0,16):
 #					self.auth(i*4,"A",0)
 #					for j in range(0,4):
@@ -37,8 +65,9 @@ class cardober( CardObserver ):
 #						response,sw1,sw2=self.read(i*4+j)
 #						print 'response: ', toHexString(response), ' status words: ', "%x %x" % (sw1, sw2)
 				if self.verifyCard():
+#					self.debugVerifyCard()
 					self.operation()
-					self.renewBlock()
+#					self.renewBlock()
 					self.finish()
 				else:
 					self.errorshow(10,0,1)					
@@ -133,15 +162,15 @@ class cardober( CardObserver ):
 	def randomBlockSaveAndWriteCard(self,num,Akey,Bkey):
 		if(num==0):
 			print "modify 0 block is danger"
-			return false
+			return False
 		self.checkAutoMkdir()
 		status,value=self.readCardNum()
 		if not status:
 		    return false
 		self.loadKey(0,Akey)
-		self.loadKey(1,Bkey)
+#		self.loadKey(1,Bkey)
 		self.auth(num*4,"a",0)
-		self.auth(num*4,"b",1)
+#		self.auth(num*4,"b",1)
 		
 		for i in range(0,3):
 			ranlist=self.randomBytes()
@@ -161,11 +190,11 @@ class cardober( CardObserver ):
                 status,value=self.readCardNum()
 		
                 if not status:
-                    return false
+                    return False
                 self.loadKey(0,self.apdu_Akey)
-                self.loadKey(1,self.apdu_Bkey)
+#               self.loadKey(1,self.apdu_Bkey)
                 self.auth(num*4,"a",0)
-                self.auth(num*4,"b",1)
+#                self.auth(num*4,"b",1)
 		
 		keygroup=[[],[],[]]
 		
@@ -206,15 +235,36 @@ class cardober( CardObserver ):
 
 
 	def operation(self):
+#		self.changeGPIOStatus(37)
+#		self.changeGPIOStatus(38)
+#		self.changeGPIOStatus(40)
+		GPIO.output(37,False)
+		GPIO.output(38,False)
+		GPIO.output(40,False)
 		return True
 
 	def finish(self):
 		response, sw1, sw2 = self.cardservice.connection.transmit([0xFF,0x00,0x40,0x04,0x04,0x02,0x01,0x03,0x01])
+#		thread.start_new_thread(self.restart)
+		self.restart()
+
+	def restart(self):
+		print "waiting for restart..."
+		sleep(10)
+		GPIO.output(37,True)
+		GPIO.output(38,True)
+		GPIO.output(40,True)
+#		thread.exit_thread()
+
+	def debugVerifyCard(self):
+		for i in range(1,16):
+			if not (self.verifyBlock(i)):
+				self.errorshow(10,0,1)
 
 	def verifyCard(self):
 
 		if(self.verifyBlock(1))and (self.verifyBlock(random.randint(2,15))):
-			print "===="
+			print "successful card:",self.readCardNum()
 	
 		else:
 			print "except card:",self.readCardNum()
@@ -237,6 +287,14 @@ cardmonitor.addObserver( cardobserver )
 
 while True:
 	sleep(60)
+#	print activeFlag
+#	if activeFlag==0:
+#		GPIO.output(37,True)
+#		GPIO.output(38,True)
+#		GPIO.output(40,True)
+#		activeFlag=-1
+#	if activeFlag==1:
+#		activeFlag=0 	
 
 #loadKey(0,apdu_Akey)
 #loadKey(1,apdu_Bkey)
