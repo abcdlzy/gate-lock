@@ -1,7 +1,9 @@
 #! /usr/bin/env python
+# -*- coding:utf8 -*- 
 import smartcard
 import os
 import random
+import web
 import RPi.GPIO as GPIO
 #import thread
 from time import sleep
@@ -11,8 +13,8 @@ from smartcard.CardRequest import CardRequest
 from smartcard.util import *
 from smartcard.CardMonitoring import CardMonitor, CardObserver
 
-
 print "\nstarting...\n"
+
 
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(37,GPIO.OUT)
@@ -25,7 +27,7 @@ GPIO.output(37,True)
 GPIO.output(38,True)
 GPIO.output(40,True)
 #GPIO.output(15,False)
-#global activeFlag
+activeFlag=0
 #activeFlag=-1
 
 print "online card reader:",smartcard.System.readers(),"\n"
@@ -70,7 +72,7 @@ class cardober( CardObserver ):
 #					self.renewBlock()
 					self.finish()
 				else:
-					self.errorshow(10,0,1)					
+					self.errorshow(10,0,1)			
 
 		for card in removedcards:
 			print "-Removed: ", toHexString( card.atr )
@@ -285,8 +287,38 @@ cardmonitor = CardMonitor()
 cardobserver = cardober()
 cardmonitor.addObserver( cardobserver )
 
-while True:
-	sleep(60)
+urls = (
+	'/','index',
+	'/unlock','unlock',
+	'/lock','lock',
+	)
+render=web.template.render("webpage")
+
+class index:
+	def GET(self):
+		return render.index()
+
+class unlock:
+	def GET(self):
+		GPIO.output(37,False)
+                GPIO.output(38,False)
+                GPIO.output(40,False)
+                sleep(10)
+                GPIO.output(37,True)
+                GPIO.output(38,True)
+                GPIO.output(40,True)		
+		return render.unlock()
+
+class lock:
+	def GET(self):
+                GPIO.output(37,True)
+                GPIO.output(38,True)
+                GPIO.output(40,True)
+		return render.lock()
+
+application = web.application(urls,globals())
+if __name__ == "__main__": 
+	application.run()
 #	print activeFlag
 #	if activeFlag==0:
 #		GPIO.output(37,True)
@@ -309,4 +341,3 @@ while True:
 #	auth(i*4,"A",0)
 #	for j in range(0,4):
 #		read(i*4+j)
-
